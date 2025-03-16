@@ -17,21 +17,14 @@ const config_1 = require("./config");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const userMiddleware = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const header = req.headers["authorization"];
-    if (!header || !header.startsWith("Bearer")) {
-        return res.status(401).json({ message: "Unauthorized User" });
+    const decoded = jsonwebtoken_1.default.verify(header, config_1.JWT_SECRET);
+    console.log(decoded);
+    if (decoded) {
+        // @ts-ignore
+        req.userId = decoded.id;
+        next();
     }
-    try {
-        const token = header.split(" ")[1];
-        const decoded = jsonwebtoken_1.default.verify(token, config_1.JWT_SECRET);
-        if (typeof decoded === "object" && "id" in decoded) {
-            req.userId = decoded.id;
-            next();
-        }
-        else {
-            res.status(401).json({ message: "Invallid Token" });
-        }
-    }
-    catch (error) {
+    else {
         res.status(401).json({ message: "Unauthorized User" });
     }
 });

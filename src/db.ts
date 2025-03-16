@@ -4,7 +4,6 @@ mongoose.connect(
 	"mongodb+srv://aditya:UGd47vKr6tFMcVa2@cluster0.yketk.mongodb.net/"
 );
 
-
 const UserSchema = new Schema({
 	username: { type: String, unique: true },
 	password: { type: String },

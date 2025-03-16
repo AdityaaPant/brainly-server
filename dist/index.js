@@ -13,9 +13,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const utils_1 = require("./utils");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_1 = require("./config");
 const db_1 = require("./db");
+const middleware_1 = require("./middleware");
 const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
@@ -49,7 +51,7 @@ app.post("/api/v1/signin", (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 }));
 //Route 3: Add Content
-app.post("/api/v1/content", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post("/api/v1/content", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { link, type, title } = req.body;
     yield db_1.ContentModel.create({
         link,
@@ -58,10 +60,56 @@ app.post("/api/v1/content", (req, res) => __awaiter(void 0, void 0, void 0, func
         userId: req.userId,
         tags: [],
     });
+    res.json({ message: "Content Added" });
 }));
-app.delete("/api/v1/content", (req, res) => { });
-app.get("/api/v1/content", (req, res) => { });
-app.post("/api/v1/brain/:shareLink", (req, res) => { });
-app.get("/api/v1/brain/:shareLink", (req, res) => { });
-app.get;
+//Route 4: Get User Content
+app.get("/api/v1/content", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const userId = req.userId;
+    const content = yield db_1.ContentModel.find({ userId: userId }).populate("userId", "username");
+    res.json(content);
+}));
+//Route 5: Delete User Content
+app.delete("/api/v1/content", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const contentId = req.body.contentId;
+    yield db_1.ContentModel.deleteMany({ contentId, userId: req.userId });
+    res.json({ message: "Deleted" });
+}));
+//Route 6: Share Content Link
+app.post("/api/v1/brain/share", middleware_1.userMiddleware, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { share } = req.body;
+    if (share) {
+        const existingLink = yield db_1.LinkModel.findOne({ userId: req.userId });
+        if (existingLink) {
+            res.json({ hash: existingLink.hash });
+            return;
+        }
+        const hash = (0, utils_1.random)(10);
+        yield db_1.LinkModel.create({ userId: req.userId, hash });
+        res.json({ hash });
+    }
+    else {
+        yield db_1.LinkModel.create({ userId: req.userId });
+        res.json({ message: "removed Link" });
+    }
+}));
+//Route 7: Get Shared Content
+app.get("/api/v1/brain/:shareLink", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const hash = req.params.shareLink;
+    const link = yield db_1.LinkModel.findOne({ hash });
+    if (!link) {
+        res.status(404).json({ message: "invalid share link" });
+        return;
+    }
+    const content = yield db_1.ContentModel.find({ userId: link.userId });
+    const user = yield db_1.UserModel.findOne({ _id: link.userId });
+    if (!user) {
+        res.status(404).json({ message: "user not found" });
+        return;
+    }
+    res.json({
+        username: user.username,
+        content,
+    });
+}));
+//start the server
 app.listen(3000);
